@@ -1,0 +1,44 @@
+CC = @CC@
+CFLAGS = @CFLAGS@
+LIBS = -lm @LIBS@
+INSTALL=@INSTALL@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+mandir=@mandir@
+DESTDIR=
+LIBUSEFUL_BUNDLED=@LIBUSEFUL_BUNDLED@
+FLAGS=$(CFLAGS) @DEFS@
+
+OBJ=common.o net.o proc.o proc_list.o
+
+all: main.c $(OBJ) $(LIBUSEFUL_BUNDLED)
+	gcc $(FLAGS) -opssec $(OBJ) main.c $(LIBS) $(LIBUSEFUL_BUNDLED)
+
+
+common.o: common.h common.c
+	gcc $(FLAGS) -c common.c
+
+net.o: net.h net.c common.h
+	gcc $(FLAGS) -c net.c
+
+proc.o: proc.h proc.c common.h
+	gcc $(FLAGS) -c proc.c
+
+proc_list.o: proc_list.h proc_list.c common.h
+	gcc $(FLAGS) -c proc_list.c
+
+
+$(LIBUSEFUL_BUNDLED):
+	make -C libUseful-bundled
+
+
+
+clean:
+	rm *.o *.orig pssec */*.o */*.a */*.so
+
+install:
+	mkdir -p $(DESTDIR)/$(bindir)
+	cp pssec -p $(DESTDIR)/$(bindir)
+	mkdir -p $(DESTDIR)/$(mandir)
+	cp pssec.1 -p $(DESTDIR)/$(mandir)

@@ -1,0 +1,229 @@
+.TH  cxine  1 "2020/05/21"
+
+.SH SYNOPSIS
+
+.PP
+pssec is a simple tool that displays some security features (or issues) active on running processes
+.SH USAGE
+
+.nf
+.ft CW
+.RS
+.EX
+
+  pssec [OPTIONS]
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.SH OPTIONS
+
+.PP
+.in +2
+
+.TP
+.B -f <num>
+set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
+
+.TP
+.B -max-fd <num>
+set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
+
+.TP
+.B --max-fd <num>
+set maximum number of file descriptors above which we raise a \(aqfdleak\(aq warning (default 200)
+
+.TP
+.B -key
+display list of security values
+
+.TP
+.B --key
+display list of security values
+
+.TP
+.B --version
+display program version
+
+.TP
+.B -version
+display program version
+
+.TP
+.B --help
+display this help
+
+.TP
+.B -help
+display this help
+
+.TP
+.B -?
+display this help
+.in
+
+.SH OUTPUT
+
+.PP
+Currently, against each process, pssec can display the following values:
+.PP
+.in +2
+
+.TP
+.B ????
+Some data could not be read. Try re-running pssec as root.
+.in
+
+.PP
+.in +2
+
+.TP
+.B nosu
+Process has \(aqno new privs\(aq flag set to prevent privilege escalation
+.in
+
+.PP
+.in +2
+
+.TP
+.B seccomp
+Process has secomp filter set to prevent use of some syscalls
+.in
+
+.PP
+.in +2
+
+.TP
+.B chroot
+Process is chrooted to some directory other than system root
+.in
+
+.PP
+.in +2
+
+.TP
+.B lserver
+Process is a TCP server, but only on LOOPBACK IP (127.x.x.x)
+.in
+
+.PP
+.in +2
+
+.TP
+.B server
+Process is a TCP server
+.in
+
+.PP
+.in +2
+
+.TP
+.B userns
+Process is in a \(aquser\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B mntns
+Process is in a \(aqmount\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B netns
+Process is in a \(aqnet\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B pidns
+Process is in a \(aqpid\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B ipcns
+Process is in a \(aqipc\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B timens
+Process is in a \(aqtime\(aq namespace
+.in
+
+.PP
+.in +2
+
+.TP
+.B utsns
+Process is in a \(aquts\(aq namespace (hostname and domainname)
+.in
+
+.PP
+.in +2
+
+.TP
+.B tcp
+Process has TCP socket connections open, but only to local IPs
+.in
+
+.PP
+.in +2
+
+.TP
+.B tcp
+Process has TCP socket connections open TO REMOTE IPs
+.in
+
+.PP
+.in +2
+
+.TP
+.B raw
+Process has RAW socket connections open
+.in
+
+.PP
+.in +2
+
+.TP
+.B memwx
+Process has memory maps that are both writeable and executable, and thus could be open to process injection
+.in
+
+.PP
+.in +2
+
+.TP
+.B stackx
+Process has an executable stack
+.in
+
+.PP
+.in +2
+
+.TP
+.B fdleak
+Process has a lot of file descriptors open. Possible fd leak?
+.in
+
+.PP
+.in +2
+
+.TP
+.B uid
+Process is running as uid or euid 0
+.in
