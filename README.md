@@ -8,6 +8,15 @@ SYNOPSIS
 
 pssec is a simple tool that displays some security features (or issues) active on running processes. It's intended to help decision making around process security. Currently it is aware of 'no new privs' flag, seccomp, writable exectuable memory, raw sockets, network servers, and connections to remote hosts.
 
+AUTHOR
+======
+
+pssec and libUseful are (C) 2010 Colum Paget. They are released under the GPL so you may do anything with them that the GPL allows.
+
+Email: colums.projects@gmail.com
+
+
+
 USAGE
 =====
 
