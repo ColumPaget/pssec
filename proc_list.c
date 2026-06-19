@@ -14,6 +14,8 @@ static void ThreadProc(ListNode *Procs, TProcess *Proc)
         if (! Parent->Children) Parent->Children=ListCreate();
         ListAddItem(Parent->Children, Proc);
         Proc->Flags |= FLAG_THREADED;
+
+        if (Proc->sid != Parent->sid) Proc->Flags |= FLAG_SESSION;
     }
 
     Destroy(Tempstr);

@@ -2,7 +2,9 @@
 
 
 TProcess *Self=NULL;
-int MaxProcessFD=200;
+int FDLeakLevel=200;
+int PidsDisplayLevel=200;
+int FilesDisplayLevel=200;
 char *TrustPath=NULL;
 
 
@@ -14,10 +16,10 @@ char *ReadLink(char *RetStr, const char *Dir, const char *File, TProcess *Proc)
     Tempstr=MCopyStr(Tempstr, Dir, "/", File, NULL);
     Buffer=SetStrLen(Buffer, 4096);
     len=readlink(Tempstr, Buffer, 4096);
-    if (len < 0) 
+    if (len < 0)
     {
-	Proc->Flags |= FLAG_UNREADABLE;
-	len=0;
+        Proc->Flags |= FLAG_UNREADABLE;
+        len=0;
     }
     StrTrunc(Buffer, len);
 

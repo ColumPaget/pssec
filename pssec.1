@@ -1,9 +1,9 @@
-.TH  cxine  1 "2020/05/21"
+.TH  pssec  1 "2026/06/19"
 
 .SH SYNOPSIS
 
 .PP
-pssec is a simple tool that displays some security features (or issues) active on running processes
+pssec is a simple tool that displays some security features (or issues) active on running processes. It\(aqs intended to help decision making around process security. Currently it is aware of \(aqno new privs\(aq flag, seccomp, writable exectuable memory, raw sockets, network servers, and connections to remote hosts.
 .SH USAGE
 
 .nf
@@ -24,16 +24,88 @@ pssec is a simple tool that displays some security features (or issues) active o
 .in +2
 
 .TP
-.B -f <num>
+.B -fdleak <num>
 set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
 
 .TP
-.B -max-fd <num>
+.B --fdleak <num>
 set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
 
 .TP
-.B --max-fd <num>
-set maximum number of file descriptors above which we raise a \(aqfdleak\(aq warning (default 200)
+.B -pdisplay <num>
+limit of 'max pids' that we consider to be constrained, and thus display as a security limit (default 200)
+
+.TP
+.B -fdisplay <num>
+limit of 'max open files' that we consider to be constrained, and thus display as a security limit (default 200)
+
+.TP
+.B -pid <pid>
+display only requested pid
+
+.TP
+.B --pid <pid>
+display only requested pid
+
+.TP
+.B -S
+only show processes that are network servers
+
+.TP
+.B -servers
+only show processes that are network servers
+
+.TP
+.B --servers
+only show processes that are network servers
+
+.TP
+.B -P
+only show processes that can escalate priviledge (su)
+
+.TP
+.B -priv
+only show processes that can escalate priviledge (su)
+
+.TP
+.B --priv
+only show processes that can escalate priviledge (su)
+
+.TP
+.B -R
+only show processes with remote connections open
+
+.TP
+.B -remote
+only show processes with remote connections open
+
+.TP
+.B --remote
+only show processes with remote connections open
+
+.TP
+.B -M
+only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+
+.TP
+.B -mem
+only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+
+.TP
+.B --mem
+only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+
+.TP
+.B -w
+display wide output, even if terminal too narrow
+
+.TP
+.B -wide
+display wide output, even if terminal too narrow
+
+.TP
+.B --wide
+display wide output, even if terminal too narrow
 
 .TP
 .B -key
@@ -67,6 +139,10 @@ display this help
 .SH OUTPUT
 
 .PP
+pssec displays pid, username, processname, number of threads and security values on terminals wider than 80 characters. On terminals below that width limit the output is limited to pid, processname, and security values.
+.PP
+Processes with names in BOLD are session leaders. Usernames (if displayed) in red are processes with either the uid or euid set to '0'.
+.PP
 Currently, against each process, pssec can display the following values:
 .PP
 .in +2
@@ -81,7 +157,7 @@ Some data could not be read. Try re-running pssec as root.
 
 .TP
 .B nosu
-Process has \(aqno new privs\(aq flag set to prevent privilege escalation
+Process has 'no new privs' flag set to prevent privilege escalation
 .in
 
 .PP
@@ -121,7 +197,7 @@ Process is a TCP server
 
 .TP
 .B userns
-Process is in a \(aquser\(aq namespace
+Process is in a 'user' namespace
 .in
 
 .PP
@@ -129,7 +205,7 @@ Process is in a \(aquser\(aq namespace
 
 .TP
 .B mntns
-Process is in a \(aqmount\(aq namespace
+Process is in a 'mount' namespace
 .in
 
 .PP
@@ -137,7 +213,7 @@ Process is in a \(aqmount\(aq namespace
 
 .TP
 .B netns
-Process is in a \(aqnet\(aq namespace
+Process is in a 'net' namespace
 .in
 
 .PP
@@ -145,7 +221,7 @@ Process is in a \(aqnet\(aq namespace
 
 .TP
 .B pidns
-Process is in a \(aqpid\(aq namespace
+Process is in a 'pid' namespace
 .in
 
 .PP
@@ -153,7 +229,7 @@ Process is in a \(aqpid\(aq namespace
 
 .TP
 .B ipcns
-Process is in a \(aqipc\(aq namespace
+Process is in a 'ipc' namespace
 .in
 
 .PP
@@ -161,7 +237,7 @@ Process is in a \(aqipc\(aq namespace
 
 .TP
 .B timens
-Process is in a \(aqtime\(aq namespace
+Process is in a 'time' namespace
 .in
 
 .PP
@@ -169,7 +245,7 @@ Process is in a \(aqtime\(aq namespace
 
 .TP
 .B utsns
-Process is in a \(aquts\(aq namespace (hostname and domainname)
+Process is in a 'uts' namespace (hostname and domainname)
 .in
 
 .PP
@@ -216,6 +292,14 @@ Process has an executable stack
 .in +2
 
 .TP
+.B heapx
+Process has an executable heap
+.in
+
+.PP
+.in +2
+
+.TP
 .B fdleak
 Process has a lot of file descriptors open. Possible fd leak?
 .in
@@ -224,6 +308,30 @@ Process has a lot of file descriptors open. Possible fd leak?
 .in +2
 
 .TP
-.B uid
-Process is running as uid or euid 0
+.B mpids
+Process is limited to only have <num> processes. If pid namespace is in use, then this means child processes of the process, otherwise it means total processes run by the user of the process
+.in
+
+.PP
+.in +2
+
+.TP
+.B mmem
+Process is limited to maximum memory of <size>
+.in
+
+.PP
+.in +2
+
+.TP
+.B files
+Process is limited to <num> open files
+.in
+
+.PP
+.in +2
+
+.TP
+.B fsize
+Process is limited to maximum file size of <size>
 .in

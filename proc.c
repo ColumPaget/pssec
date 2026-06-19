@@ -9,14 +9,16 @@ static void ParseProcStatus(TProcess *Proc, const char *Line)
     char *tptr;
 
     ptr=GetToken(Line, ":", &Token, 0);
-    if (strcasecmp(Token, "uid")==0) 
+    if (strcasecmp(Token, "uid")==0)
     {
-	Proc->uid=strtol(ptr, &tptr, 10);
-	Proc->euid=strtol(tptr, &tptr, 10);
+        Proc->uid=strtol(ptr, &tptr, 10);
+        Proc->euid=strtol(tptr, &tptr, 10);
     }
 
     if (strcasecmp(Token, "pid")==0) Proc->pid=atol(ptr);
     if (strcasecmp(Token, "ppid")==0) Proc->ppid=atol(ptr);
+    if (strcasecmp(Token, "NSsid")==0) Proc->sid=atol(ptr);
+
     if (strcasecmp(Token, "nonewprivs")==0)
     {
         if (atoi(ptr)) Proc->Flags |= FLAG_NOSU;
@@ -30,7 +32,7 @@ static void ParseProcStatus(TProcess *Proc, const char *Line)
 }
 
 
-static void LoadProcFSRoot(TProcess *Proc, const char *Dir)
+static void ProcLoadFSRoot(TProcess *Proc, const char *Dir)
 {
     Proc->FSRoot=ReadLink(Proc->FSRoot, Dir, "/root", Proc);
     if (StrValid(Proc->FSRoot) && (strcmp(Proc->FSRoot, "/") != 0) ) Proc->Flags |= FLAG_CHROOT;
@@ -38,7 +40,7 @@ static void LoadProcFSRoot(TProcess *Proc, const char *Dir)
 
 
 
-static void LoadProcNamespaces(TProcess *Proc, const char *Dir)
+static void ProcLoadNamespaces(TProcess *Proc, const char *Dir)
 {
     Proc->UserNS=ReadLink(Proc->UserNS, Dir, "/ns/user", Proc);
     Proc->MountNS=ReadLink(Proc->MountNS, Dir, "/ns/mnt", Proc);
@@ -86,15 +88,18 @@ static void ProcessSocketLine(TProcess *Proc, long Inode, const char *Line, int 
 
     if (atol(Token) == Inode)
     {
-        if (IsLocalIP(RemoteIP)) Proc->Flags |= LocalNetFlag;
-        else Proc->Flags |= NetFlag;
-
         //this indicates 'listening' state, and so a server
         if (strcasecmp(State, "0A")==0)
         {
             if (IsLoopbackIP(LocalIP)) Proc->Flags=FLAG_LOOP_SERVER;
             else Proc->Flags |= FLAG_SERVER;
         }
+        else
+        {
+            if (IsLocalIP(RemoteIP)) Proc->Flags |= LocalNetFlag;
+            else Proc->Flags |= NetFlag;
+        }
+
     }
 
     Destroy(State);
@@ -138,7 +143,7 @@ static void CheckProcFDs(TProcess *Proc, const char *Dir)
         TCPNets=FileRead(TCPNets, "/proc/net/tcp");
         RawNets=FileRead(RawNets, "/proc/net/raw");
 
-        if (Glob.gl_pathc > MaxProcessFD) Proc->Flags |= FLAG_FDLEAK;
+        if (Glob.gl_pathc > FDLeakLevel) Proc->Flags |= FLAG_FDLEAK;
 
         for (i=0; i < Glob.gl_pathc; i++)
         {
@@ -157,7 +162,7 @@ static void CheckProcFDs(TProcess *Proc, const char *Dir)
     }
     else
     {
-	 if ( (errno == EPERM) || (errno == EACCES) ) Proc->Flags |= FLAG_UNREADABLE;
+        if ( (errno == EPERM) || (errno == EACCES) ) Proc->Flags |= FLAG_UNREADABLE;
     }
 
 
@@ -170,9 +175,17 @@ static void CheckProcFDs(TProcess *Proc, const char *Dir)
 
 static void CheckProcExe(TProcess *Proc, const char *Dir)
 {
+    char *Token=NULL;
 
+    Proc->ExePath=ReadLink(Proc->ExePath, Dir, "/exe", Proc);
 
+    GetToken(Proc->Name, "\\S", &Token, 0);
+    if (StrValid(Proc->ExePath))
+    {
+        if (CompareStr(GetBasename(Token), GetBasename(Proc->ExePath)) !=0) Proc->Flags |= FLAG_EXE_PATH;
+    }
 
+    Destroy(Token);
 }
 
 
@@ -196,15 +209,94 @@ static void ParseMemoryMap(TProcess *Proc, const char *Input)
         ptr=GetToken(ptr, "\\S", &Token, 0);   //name
 
         if (strcmp(Token, "[stack]")==0) Proc->Flags |= FLAG_STACKX;
+        if (strcmp(Token, "[heap]")==0) Proc->Flags |= FLAG_HEAPX;
     }
 
     Destroy(Token);
 }
 
 
+static void ProcLoadLimits(TProcess *Proc, const char *Dir)
+{
+    char *Tempstr=NULL, *Token=NULL;
+    const char *ptr;
+    STREAM *S;
+
+    Tempstr=MCopyStr(Tempstr, Dir, "/limits", NULL);
+    S=STREAMOpen(Tempstr, "r");
+    if (S)
+    {
+        Tempstr=STREAMReadLine(Tempstr, S);
+        while (Tempstr)
+        {
+            StripTrailingWhitespace(Tempstr);
+            if (strncmp(Tempstr, "Max processes ", 14)==0) Proc->MaxChildren=strtol(Tempstr+14, NULL, 10);
+            if (strncmp(Tempstr, "Max address space ", 18)==0) Proc->MaxMemory=strtoul(Tempstr+18, NULL, 10);
+            if (strncmp(Tempstr, "Max open files ", 15)==0) Proc->MaxFiles=strtoul(Tempstr+15, NULL, 10);
+            if (strncmp(Tempstr, "Max file size ", 14)==0) Proc->MaxFileSize=strtoul(Tempstr+14, NULL, 10);
+            Tempstr=STREAMReadLine(Tempstr, S);
+        }
+        STREAMClose(S);
+    }
+
+    Destroy(Tempstr);
+    Destroy(Token);
+}
+
+unsigned long CGroupValueRead(const char *CGroupPath, const char *File, unsigned long *target)
+{
+    char *Path=NULL, *Tempstr=NULL;
+    int val;
+
+    Path=MCopyStr(Path, CGroupPath, File, NULL);
+    Tempstr=FileRead(Tempstr, Path);
+    StripTrailingWhitespace(Tempstr);
+    val=strtoul(Tempstr, NULL, 10);
+    if (val > 0) 
+    {
+     if ((*target == 0) || (val < *target)) *target=val;
+    }
+
+    Destroy(Path);
+    Destroy(Tempstr);
+
+    return(val);
+}
+
+static void ProcLoadCGroup(TProcess *Proc, const char *Dir)
+{
+    char *Tempstr=NULL, *Token=NULL, *CGroup=NULL;
+    const char *ptr;
+    STREAM *S;
+
+    Tempstr=MCopyStr(Tempstr, Dir, "/cgroup", NULL);
+    S=STREAMOpen(Tempstr, "r");
+    if (S)
+    {
+        Tempstr=STREAMReadLine(Tempstr, S);
+        StripTrailingWhitespace(Tempstr);
+
+        ptr=GetToken(Tempstr, ":", &Token, 0);
+        ptr=GetToken(ptr, ":", &Token, 0);
+        ptr=GetToken(ptr, ":", &Token, 0);
+
+        CGroup=MCopyStr(CGroup, "/sys/fs/cgroup/", Token, NULL);
+
+        STREAMClose(S);
+    }
 
 
-static void LoadProcMemory(TProcess *Proc, const char *Dir)
+    CGroupValueRead(CGroup, "/pids.max", &(Proc->MaxChildren));
+    CGroupValueRead(CGroup, "/memory.max", &(Proc->MaxMemory));
+
+    Destroy(Tempstr);
+    Destroy(CGroup);
+    Destroy(Token);
+}
+
+
+
+static void ProcLoadMemory(TProcess *Proc, const char *Dir)
 {
     char *Tempstr=NULL;
     STREAM *S;
@@ -256,11 +348,25 @@ static void ProcLoadCmdLine(TProcess *Proc, const char *Dir)
 }
 
 
+static void ProcLoadThreads(TProcess *Proc, const char *Dir)
+{
+    char *Tempstr=NULL;
+    glob_t myGlob;
+
+    Tempstr=MCopyStr(Tempstr, Dir, "/task/*", NULL);
+    glob(Tempstr, 0, 0, &myGlob);
+    Proc->threads=myGlob.gl_pathc;
+    globfree(&myGlob);
+
+    Destroy(Tempstr);
+}
+
+
 TProcess *LoadProc(const char *Dir)
 {
-    STREAM *S;
     char *Tempstr=NULL, *Path=NULL;
     TProcess *Proc=NULL;
+    STREAM *S;
 
     Path=MCopyStr(Path, Dir, "/status", NULL);
     S=STREAMOpen(Path, "r");
@@ -277,11 +383,14 @@ TProcess *LoadProc(const char *Dir)
         STREAMClose(S);
 
         ProcLoadCmdLine(Proc, Dir);
-        LoadProcFSRoot(Proc, Dir);
-        LoadProcNamespaces(Proc, Dir);
-        LoadProcMemory(Proc, Dir);
+        ProcLoadFSRoot(Proc, Dir);
+        ProcLoadNamespaces(Proc, Dir);
+        ProcLoadMemory(Proc, Dir);
+        ProcLoadLimits(Proc, Dir);
         CheckProcFDs(Proc, Dir);
         CheckProcExe(Proc, Dir);
+        ProcLoadThreads(Proc, Dir);
+        ProcLoadCGroup(Proc, Dir);
     }
 
 
@@ -301,8 +410,7 @@ TProcess *LoadProc(const char *Dir)
 int IsKernelThread(const char *Path)
 {
     char *Tempstr=NULL, *Buffer=NULL;
-    int result=FALSE, val;
-    STREAM *S;
+    int result=FALSE;
 
     Tempstr=MCopyStr(Tempstr, Path, "/cmdline", NULL);
     Buffer=FileRead(Buffer, Tempstr);
@@ -315,7 +423,7 @@ int IsKernelThread(const char *Path)
 }
 
 
-ListNode *LoadProcs()
+ListNode *LoadProcs(pid_t QueryPID)
 {
     ListNode *Procs;
     char *Tempstr=NULL;
@@ -325,7 +433,14 @@ ListNode *LoadProcs()
 
     Procs=ListCreate();
 
-    glob("/proc/[1-9]*/", 0, 0, &Glob);
+    if (QueryPID > 0)
+    {
+        Tempstr=FormatStr(Tempstr, "/proc/%lu/", QueryPID);
+        glob(Tempstr, 0, 0, &Glob);
+    }
+    else glob("/proc/[1-9]*/", 0, 0, &Glob);
+
+
     for (i=0; i < Glob.gl_pathc; i++)
     {
         if (! IsKernelThread(Glob.gl_pathv[i]))

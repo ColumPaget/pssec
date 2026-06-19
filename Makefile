@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -O2 -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong
+CFLAGS = -g -O2 -fPIE -fstack-clash-protection -fno-strict-overflow -fno-strict-aliasing -fno-delete-null-pointer-checks -fcf-protection=full -mmitigate-rop -Wl,-z,relro,-z,now -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong
 LIBS = -lm -lUseful-5 
 INSTALL=/usr/bin/install -c
 prefix=/usr/local
@@ -39,6 +39,8 @@ clean:
 
 install:
 	mkdir -p $(DESTDIR)/$(bindir)
-	cp pssec -p $(DESTDIR)/$(bindir)
+	cp -f pssec $(DESTDIR)/$(bindir)
+	chmod 0755 $(DESTDIR)/$(bindir)/pssec
 	mkdir -p $(DESTDIR)/$(mandir)
-	cp pssec.1 -p $(DESTDIR)/$(mandir)
+	cp pssec.1 $(DESTDIR)/$(mandir)
+

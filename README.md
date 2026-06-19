@@ -1,12 +1,12 @@
-title: cxine
+title: pssec
 mansection: 1
-date: 2020/05/21
+date: 2026/06/19
 
 
 SYNOPSIS
 ========
 
-pssec is a simple tool that displays some security features (or issues) active on running processes
+pssec is a simple tool that displays some security features (or issues) active on running processes. It's intended to help decision making around process security. Currently it is aware of 'no new privs' flag, seccomp, writable exectuable memory, raw sockets, network servers, and connections to remote hosts.
 
 USAGE
 =====
@@ -19,12 +19,48 @@ USAGE
 OPTIONS
 =======
 
--f <num>
+-fdleak <num>
 : set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
--max-fd <num>    
+--fdleak <num>   
 : set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
---max-fd <num>   
-: set maximum number of file descriptors above which we raise a 'fdleak' warning (default 200)
+-pdisplay <num>  
+: limit of 'max pids' that we consider to be constrained, and thus display as a security limit (default 200)
+-fdisplay <num>  
+: limit of 'max open files' that we consider to be constrained, and thus display as a security limit (default 200)
+-pid <pid>
+: display only requested pid
+--pid <pid>
+: display only requested pid
+-S
+: only show processes that are network servers
+-servers
+: only show processes that are network servers
+--servers
+: only show processes that are network servers
+-P
+: only show processes that can escalate priviledge (su)
+-priv
+: only show processes that can escalate priviledge (su)
+--priv
+: only show processes that can escalate priviledge (su)
+-R
+: only show processes with remote connections open
+-remote
+: only show processes with remote connections open
+--remote
+: only show processes with remote connections open
+-M
+: only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+-mem
+: only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+--mem
+: only show processes with exectuable memory that is writable, executable stack, or exectuable heap
+-w
+: display wide output, even if terminal too narrow
+-wide
+: display wide output, even if terminal too narrow
+--wide
+: display wide output, even if terminal too narrow
 -key             
 : display list of security values
 --key
@@ -44,6 +80,11 @@ OPTIONS
 
 OUTPUT
 ======
+
+pssec displays pid, username, processname, number of threads and security values on terminals wider than 80 characters. On terminals below that width limit the output is limited to pid, processname, and security values.
+
+Processes with names in BOLD are session leaders. Usernames (if displayed) in red are processes with either the uid or euid set to '0'.
+
 
 Currently, against each process, pssec can display the following values:
 
@@ -102,10 +143,21 @@ memwx
 stackx
 : Process has an executable stack
 
+heapx
+: Process has an executable heap
+
 fdleak
 : Process has a lot of file descriptors open. Possible fd leak?
 
-uid
-: Process is running as uid or euid 0
+mpids:<num> 
+: Process is limited to only have <num> processes. If pid namespace is in use, then this means child processes of the process, otherwise it means total processes run by the user of the process 
 
+mmem:<size>
+: Process is limited to maximum memory of <size> 
+
+files:<num> 
+: Process is limited to <num> open files 
+
+fsize:<size>
+: Process is limited to maximum file size of <size>
 

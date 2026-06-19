@@ -4,7 +4,7 @@
 #include "common.h"
 
 TProcess *LoadProc(const char *Dir);
-ListNode *LoadProcs();
+ListNode *LoadProcs(pid_t QueryPID);
 
 #endif
 

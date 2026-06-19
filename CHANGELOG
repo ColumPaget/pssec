@@ -1,0 +1,14 @@
+v2.0 (2026-06-19)
+-----------------
+* show session leader processes in bold
+* add 'threads' count for displayed processes
+* display limits applied to max pids, max memory, max files and max file size using either rlimit or cgroups.
+* add command-line selections to display servers, processes that can escalate privilidge, processes with memory issues or processes with remote connections open
+* display more info (process user and thread count) on wider terminals
+
+
+
+
+v1.0 (2026-06-12)
+-----------------
+* initial release
