@@ -1,3 +1,13 @@
+v3.0 (2026-10-31)
+-----------------
+* add check for group or world-writable executable files
+* add check for suid or sgid executable files
+* add check for missing/deleted executable files
+* add check for /proc/<pid>/cmdline not matching /proc/<pid>/comm
+* remove mdwx:hard, as causes issues on some systems. Switch to plain mdwx.
+
+
+
 v2.0 (2026-06-19)
 -----------------
 * show session leader processes in bold

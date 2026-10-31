@@ -1,6 +1,6 @@
 title: pssec
 mansection: 1
-date: 2026/06/19
+date: 2026/10/31
 
 
 SYNOPSIS
@@ -70,6 +70,10 @@ OPTIONS
 : display wide output, even if terminal too narrow
 --wide
 : display wide output, even if terminal too narrow
+-epath
+: display processes whose executable (from /proc/<pid>/exe) does not match their command-line. VERY NOISY.
+--epath
+: display processes whose executable (from /proc/<pid>/exe) does not match their command-line. VERY NOISY.
 -key             
 : display list of security values
 --key
@@ -170,3 +174,17 @@ files:<num>
 fsize:<size>
 : Process is limited to maximum file size of <size>
 
+cmd[<name>]   
+: /proc/<pid>/cmdline does not match /proc/<pid>/comm.  When used with '-epath' /proc/<pid>/cmdline does not match /proc/<pid>/comm OR executable filename on disk. Very noisy as there's many reasons this can be the case.
+
+path          
+: running exectuable does not exist on disk (deleted or replaced on disk).
+
+gwrite        
+: running exectuable is group writable on disk.
+
+owrite        
+: running exectuable is other (WORLD) writable on disk.
+
+suid          
+: running exectuable is suid or sgid on disk.

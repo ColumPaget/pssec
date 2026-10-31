@@ -9,10 +9,11 @@
 
 
 //process type select flags
-#define FLAG_SHOW_SU       1
-#define FLAG_SHOW_REMOTE   2
-#define FLAG_SHOW_SERVERS  4
-#define FLAG_SHOW_MEMWRITE 8
+#define FLAG_SHOW_SU            1
+#define FLAG_SHOW_REMOTE        2
+#define FLAG_SHOW_SERVERS       4
+#define FLAG_SHOW_MEMWRITE      8
+#define FLAG_SHOW_EXE_MISMATCH 16
 
 //display flags
 #define FLAG_SHOW_FULLWIDTH 1
@@ -67,7 +68,7 @@ void DisplayProcesses(STREAM *Term, int wide, ListNode *Items, int Level)
 
         if (CheckProcessSelectFlags(Proc))
         {
-            Name=DisplayReformatCmdLine(Name, Proc->Name, Pad);
+            Name=DisplayReformatCmdLine(Name, Proc->CmdLine, Pad);
 
             if ((Proc->uid == 0) || (Proc->euid == 0) ) User=MCopyStr(User, "~r", LookupUserName(Proc->uid), "~0", NULL);
             else User=CopyStr(User, LookupUserName(Proc->uid));
@@ -86,7 +87,12 @@ void DisplayProcesses(STREAM *Term, int wide, ListNode *Items, int Level)
             if (Proc->Flags & FLAG_TCP) Secure=CatStr(Secure, "~btcp~0 ");
             if (Proc->Flags & FLAG_INET) Secure=CatStr(Secure, "~rtcp~0 ");
             if (Proc->Flags & FLAG_RAW) Secure=CatStr(Secure, "~rraw~0 ");
-//            if (Proc->Flags & FLAG_EXE_PATH) Secure=CatStr(Secure, "~rcmd~0 ");
+            if (Proc->Flags & FLAG_COMM_NAME) Secure=MCatStr(Secure, "~rcmd[", GetBasename(Proc->ExePath), "]~0 ", NULL);
+            if ((DisplayFlags & FLAG_SHOW_EXE_MISMATCH) && (Proc->Flags & FLAG_EXE_NAME)) Secure=MCatStr(Secure, "~rcmd[", GetBasename(Proc->ExePath), "]~0 ", NULL);
+            if (Proc->Flags & FLAG_EXE_PATH) Secure=CatStr(Secure, "~rpath~0 ");
+            if (Proc->Flags & FLAG_EXE_GROUP_WRITE) Secure=CatStr(Secure, "~e~rgwrite~0 ");
+            if (Proc->Flags & FLAG_EXE_WORLD_WRITE) Secure=CatStr(Secure, "~e~rowrite~0 ");
+            if (Proc->Flags & FLAG_EXE_SUID) Secure=CatStr(Secure, "~rsuid~0 ");
 
             if (StrValid(Proc->UserNS) && (strcmp(Proc->UserNS, Self->UserNS) !=0)) Secure=CatStr(Secure, "~cuserns~0 ");
             if (StrValid(Proc->MountNS) && (strcmp(Proc->MountNS, Self->MountNS) !=0)) Secure=CatStr(Secure, "~cmntns~0 ");
@@ -181,11 +187,6 @@ int ParseCommandLine(int argc, char *argv[])
 
         if (strcmp(arg, "--key")==0) Act=ACT_KEY;
         else if (strcmp(arg, "-key")==0) Act=ACT_KEY;
-        else if (strcmp(arg, "--help")==0) Act=ACT_HELP;
-        else if (strcmp(arg, "-help")==0) Act=ACT_HELP;
-        else if (strcmp(arg, "-?")==0) Act=ACT_HELP;
-        else if (strcmp(arg, "-version")==0) Act=ACT_VERSION;
-        else if (strcmp(arg, "--version")==0) Act=ACT_VERSION;
         else if (strcmp(arg, "-fdleak")==0) FDLeakLevel=atoi(CommandLineNext(CL));
         else if (strcmp(arg, "-pdisplay")==0) PidsDisplayLevel=atoi(CommandLineNext(CL));
         else if (strcmp(arg, "-fdisplay")==0) FilesDisplayLevel=atoi(CommandLineNext(CL));
@@ -206,6 +207,14 @@ int ParseCommandLine(int argc, char *argv[])
         else if (strcmp(arg, "-w")==0) DisplayFlags |= FLAG_SHOW_FULLWIDTH;
         else if (strcmp(arg, "-wide")==0) DisplayFlags |= FLAG_SHOW_FULLWIDTH;
         else if (strcmp(arg, "--wide")==0) DisplayFlags |= FLAG_SHOW_FULLWIDTH;
+        else if (strcmp(arg, "-epath")==0) DisplayFlags |= FLAG_SHOW_EXE_MISMATCH;
+        else if (strcmp(arg, "--epath")==0) DisplayFlags |= FLAG_SHOW_EXE_MISMATCH;
+        else if (strcmp(arg, "--help")==0) Act=ACT_HELP;
+        else if (strcmp(arg, "-help")==0) Act=ACT_HELP;
+        else if (strcmp(arg, "-?")==0) Act=ACT_HELP;
+        else if (strcmp(arg, "-version")==0) Act=ACT_VERSION;
+        else if (strcmp(arg, "--version")==0) Act=ACT_VERSION;
+
         arg=CommandLineNext(CL);
     }
 
@@ -235,7 +244,8 @@ void PrintHelp()
     printf("  -mem             only show processes with exectuable memory that is writable, executable stack, or exectuable heap\n");
     printf("  -w               display wide output, even if terminal too narrow\n");
     printf("  -wide            display wide output, even if terminal too narrow\n");
- 
+    printf("  -epath           display processes whose executable (from /proc/<pid>/exe) does not match their command-line. VERY NOISY.\n");
+
     printf("  --version        display program version\n");
     printf("  -version         display program version\n");
     printf("  --help           display this help\n");
@@ -274,6 +284,13 @@ void PrintKey()
     TerminalPutStr("  ~gmmem:<size>~0    - Process is limited to maximum memory of <size> \n", NULL);
     TerminalPutStr("  ~gfiles:<num>~0    - Process is limited to <num> open files \n", NULL);
     TerminalPutStr("  ~gfsize:<size>~0   - Process is limited to maximum file size of <size>\n", NULL);
+    TerminalPutStr("  ~rcmd[<name>]~0    - /proc/<pid>/cmdline does not match /proc/<pid>/comm\n", NULL);
+    TerminalPutStr("  ~rcmd[<name>]~0    - when used with '-epath' /proc/<pid>/cmdline does not match /proc/<pid>/comm OR executable filename on disk. Very noisy as there's many reasons this can be the case.\n", NULL);
+    TerminalPutStr("  ~rpath~0           - running exectuable does not exist on disk (deleted or replaced on disk).\n", NULL);
+    TerminalPutStr("  ~e~rgwrite~0         - running exectuable is group writable on disk.\n", NULL);
+    TerminalPutStr("  ~e~rowrite~0         - running exectuable is other (WORLD) writable on disk.\n", NULL);
+    TerminalPutStr("  ~rsuid~0           - running exectuable is suid or sgid on disk.\n", NULL);
+
 }
 
 
@@ -287,8 +304,9 @@ void PrintVersion()
 int main(int argc, char *argv[])
 {
     int Act;
+    char *Tempstr=NULL;
 
-    ProcessApplyConfig("mdwe:hard security='paranoid syscall_deny=group:net'");
+    ProcessApplyConfig("mdwe security='paranoid syscall_deny=group:net'");
 
     TrustPath=CopyStr(TrustPath, "/bin:/usr/bin:/sbin:/usr/sbin");
     Act=ParseCommandLine(argc, argv);

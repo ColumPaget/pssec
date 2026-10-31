@@ -1,4 +1,4 @@
-.TH  pssec  1 "2026/06/19"
+.TH  pssec  1 "2026/10/31"
 
 .SH SYNOPSIS
 
@@ -112,6 +112,14 @@ display wide output, even if terminal too narrow
 .TP
 .B --wide
 display wide output, even if terminal too narrow
+
+.TP
+.B -epath
+display processes whose executable (from /proc/<pid>/exe) does not match their command-line. VERY NOISY.
+
+.TP
+.B --epath
+display processes whose executable (from /proc/<pid>/exe) does not match their command-line. VERY NOISY.
 
 .TP
 .B -key
@@ -340,4 +348,44 @@ Process is limited to <num> open files
 .TP
 .B fsize
 Process is limited to maximum file size of <size>
+.in
+
+.PP
+.in +2
+
+.TP
+.B cmd[<name>]
+/proc/<pid>/cmdline does not match /proc/<pid>/comm.  When used with '-epath' /proc/<pid>/cmdline does not match /proc/<pid>/comm OR executable filename on disk. Very noisy as there\(aqs many reasons this can be the case.
+.in
+
+.PP
+.in +2
+
+.TP
+.B path
+running exectuable does not exist on disk (deleted or replaced on disk).
+.in
+
+.PP
+.in +2
+
+.TP
+.B gwrite
+running exectuable is group writable on disk.
+.in
+
+.PP
+.in +2
+
+.TP
+.B owrite
+running exectuable is other (WORLD) writable on disk.
+.in
+
+.PP
+.in +2
+
+.TP
+.B suid
+running exectuable is suid or sgid on disk.
 .in

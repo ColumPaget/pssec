@@ -176,14 +176,38 @@ static void CheckProcFDs(TProcess *Proc, const char *Dir)
 static void CheckProcExe(TProcess *Proc, const char *Dir)
 {
     char *Token=NULL;
+    struct stat FStat;
 
     Proc->ExePath=ReadLink(Proc->ExePath, Dir, "/exe", Proc);
 
     GetToken(Proc->Name, "\\S", &Token, 0);
     if (StrValid(Proc->ExePath))
     {
-        if (CompareStr(GetBasename(Token), GetBasename(Proc->ExePath)) !=0) Proc->Flags |= FLAG_EXE_PATH;
+        if (CompareStr(GetBasename(Token), GetBasename(Proc->ExePath)) !=0)
+        {
+            Proc->Flags |= FLAG_EXE_NAME;
+        }
     }
+
+    //for some processes we may not be able to examine their path
+    //because our user lacks permission
+    if (StrValid(Proc->ExePath))
+    {
+        if (stat(Proc->ExePath, &FStat) == 0)
+        {
+            if (FStat.st_mode & S_IWGRP) Proc->Flags |= FLAG_EXE_GROUP_WRITE;
+            if (FStat.st_mode & S_IWOTH) Proc->Flags |= FLAG_EXE_WORLD_WRITE;
+            if (FStat.st_mode & S_ISUID) Proc->Flags |= FLAG_EXE_SUID;
+            if (FStat.st_mode & S_ISGID) Proc->Flags |= FLAG_EXE_SUID;
+        }
+        else
+        {
+            perror(Proc->ExePath);
+            if (errno != EPERM) Proc->Flags |= FLAG_EXE_PATH;
+        }
+    }
+    else Proc->Flags |= FLAG_UNREADABLE;
+
 
     Destroy(Token);
 }
@@ -243,18 +267,18 @@ static void ProcLoadLimits(TProcess *Proc, const char *Dir)
     Destroy(Token);
 }
 
-unsigned long CGroupValueRead(const char *CGroupPath, const char *File, unsigned long *target)
+uint64_t CGroupValueRead(const char *CGroupPath, const char *File, uint64_t *target)
 {
     char *Path=NULL, *Tempstr=NULL;
-    int val;
+    uint64_t val;
 
     Path=MCopyStr(Path, CGroupPath, File, NULL);
     Tempstr=FileRead(Tempstr, Path);
     StripTrailingWhitespace(Tempstr);
-    val=strtoul(Tempstr, NULL, 10);
-    if (val > 0) 
+    val=strtoull(Tempstr, NULL, 10);
+    if (val > 0)
     {
-     if ((*target == 0) || (val < *target)) *target=val;
+        if ((*target == 0) || (val < *target)) *target=val;
     }
 
     Destroy(Path);
@@ -333,14 +357,36 @@ static void ProcLoadCmdLine(TProcess *Proc, const char *Dir)
         if (len > 0)
         {
             StrTrunc(Tempstr, len);
+
+
+            //now replace '\' with '/' to handle wine/windows processes
+            for (i=0; i < len; i++)
+            {
+                if (Tempstr[i] == '\\') Tempstr[i]='/';
+            }
+
+            //before we replace '\0' with ' ' copy just the first argument
+            //of the command-line, which should be the program name
+            Proc->Name=CopyStr(Proc->Name, Tempstr);
+
+            //now replace '\0' with ' ' to make the whole command-line one string
             for (i=0; i < len; i++)
             {
                 if (Tempstr[i] == '\0') Tempstr[i]=' ';
-                if (Tempstr[i] == '\\') Tempstr[i]='/';
             }
-            Proc->Name=CopyStr(Proc->Name, Tempstr);
+            Proc->CmdLine=CopyStr(Proc->CmdLine, Tempstr);
+            StripTrailingWhitespace(Proc->CmdLine);
         }
         close(fd);
+    }
+
+    Path=MCopyStr(Path, Dir, "/comm", NULL);
+    Proc->Comm=FileRead(Proc->Comm, Path);
+    StripTrailingWhitespace(Proc->Comm);
+
+    if (strncmp(Proc->Comm, GetBasename(Proc->Name), StrLen(Proc->Comm)) !=0)
+    {
+        Proc->Flags |= FLAG_COMM_NAME;
     }
 
     Destroy(Tempstr);
